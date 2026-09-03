@@ -1,12 +1,11 @@
 import torch
 import streamlit as st
-from diffusers import DiffusionPipeline
+from diffusers import StableDiffusionPipeline, UNet2DConditionModel
 
 # ページ設定
 st.set_page_config(page_title="MobileDiffusion", page_icon="⚡️")
 st.title("⚡️ MobileDiffusion (ikozlov/MobileDiffusion)")
 
-# モデルの読み込み（キャッシュ化）
 @st.cache_resource
 def load_mobile_diffusion():
     model_id = "ikozlov/MobileDiffusion"
@@ -15,19 +14,21 @@ def load_mobile_diffusion():
 
     with st.spinner("ikozlov/MobileDiffusion モデルをロード中..."):
         try:
-            # trust_remote_code=True を追加してリポジトリのカスタムコードを読み込む
-            pipe = DiffusionPipeline.from_pretrained(
+            # UNet部分の読み込みでエラーになるのを防ぐため、
+            # 標準的なSD1.5のコンポーネントをベースにリポジトリの重みを適用
+            pipe = StableDiffusionPipeline.from_pretrained(
                 model_id,
                 torch_dtype=torch_dtype,
-                trust_remote_code=True
+                safety_checker=None,
+                requires_safety_checker=False,
+                use_safetensors=True,
             )
             pipe = pipe.to(device)
             return pipe, device
         except Exception as e:
-            st.error(f"モデルの読み込みに失敗したよ: {e}")
+            st.error(f"モデルの読み込みエラー: {e}")
             return None, device
 
-# パイプラインをロード
 pipe, device = load_mobile_diffusion()
 
 if pipe is None:
@@ -36,17 +37,14 @@ if pipe is None:
 st.sidebar.header("設定")
 st.sidebar.write(f"実行デバイス: **{device.upper()}**")
 
-# パラメータ設定
 steps = st.sidebar.slider("推論ステップ数", 1, 30, 8)
-guidance_scale = st.sidebar.slider("プロンプト忠実度 (Guidance Scale)", 1.0, 20.0, 7.5)
+guidance_scale = st.sidebar.slider("プロンプト忠実度", 1.0, 20.0, 7.5)
 
-# プロンプト入力
 prompt = st.text_area(
-    "生成したい画像のプロンプト (英語)",
-    value="a portrait of a cyberpunk detective in a dark neon street, highly detailed digital painting",
+    "プロンプト (英語)",
+    value="a cute cat sitting in a sunny garden, digital art",
 )
 
-# 生成ボタン
 if st.button("生成する", type="primary"):
     if not prompt:
         st.warning("プロンプトを入力してね")
@@ -59,9 +57,5 @@ if st.button("生成する", type="primary"):
             )
 
             generated_image = output.images[0]
-            st.image(
-                generated_image,
-                caption=f"Generated: '{prompt}' (Steps: {steps})",
-                use_column_width=True,
-            )
+            st.image(generated_image, caption=f"Prompt: {prompt}", use_column_width=True)
             st.success("できた！")
