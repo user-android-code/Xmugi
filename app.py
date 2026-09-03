@@ -1,72 +1,54 @@
 import torch
 import streamlit as st
-from diffusers import DiffusionPipeline
+from diffusers import StableDiffusionPipeline
 
 # ページ設定
-st.set_page_config(page_title="MobileDiffusion App", page_icon="⚡️")
-st.title("⚡️ MobileDiffusion (ikozlov/MobileDiffusion)")
+st.set_page_config(page_title="超軽量・画像生成AI", page_icon="🎨")
+st.title("🎨 超軽量・画像生成アプリ")
+st.write("プロンプトを入力して、画像を作ってみよう！")
 
-# モデルの読み込み（Hugging Face公式の読み込み手順に準拠）
+# 超軽量モデルの読み込み
 @st.cache_resource
-def load_mobile_diffusion():
-    model_id = "ikozlov/MobileDiffusion"
+def load_lightweight_model():
+    # 超小型のStable Diffusionモデル (サイズがめちゃくちゃ小さい)
+    model_id = "lambdalabs/miniSD-diffusers"
     
-    # GPU環境に合わせて dtype を設定（Macなら mps, CUDAなら cuda）
-    if torch.cuda.is_available():
-        device = "cuda"
-        dtype = torch.bfloat16
-    else:
-        device = "cpu"
-        dtype = torch.float32
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch_dtype = torch.float16 if device == "cuda" else torch.float32
 
-    with st.spinner("MobileDiffusion モデルをロード中..."):
-        try:
-            # 公式記載の正しい読み込み方
-            pipe = DiffusionPipeline.from_pretrained(
-                model_id, 
-                dtype=dtype
-            )
-            pipe = pipe.to(device)
-            return pipe, device
-        except Exception as e:
-            st.error(f"モデルの読み込みエラー: {e}")
-            return None, device
+    with st.spinner("軽量モデルを準備中..."):
+        pipe = StableDiffusionPipeline.from_pretrained(
+            model_id, 
+            torch_dtype=torch_dtype,
+            safety_checker=None
+        )
+        pipe = pipe.to(device)
+        return pipe, device
 
-# パイプラインをロード
-pipe, device = load_mobile_diffusion()
-
-if pipe is None:
-    st.stop()
+pipe, device = load_lightweight_model()
 
 st.sidebar.header("設定")
 st.sidebar.write(f"実行デバイス: **{device.upper()}**")
 
-# パラメータ設定
-steps = st.sidebar.slider("推論ステップ数", 1, 30, 8)
-guidance_scale = st.sidebar.slider("プロンプト忠実度", 1.0, 20.0, 7.5)
+# 設定スライダー
+steps = st.sidebar.slider("生成ステップ数", 10, 30, 15)
 
-# プロンプト入力
-prompt = st.text_area(
-    "プロンプト (英語)",
-    value="Astronaut in a jungle, cold color palette, detailed, 8k",
+# プロンプト入力画面
+prompt = st.text_input(
+    "どんな画像を作る？（英語がおすすめ）",
+    value="a tiny cute robot drinking coffee, digital art",
 )
 
 # 生成ボタン
-if st.button("生成する", type="primary"):
+if st.button("画像を生成する！", type="primary"):
     if not prompt:
-        st.warning("プロンプトを入力してね")
+        st.warning("プロンプトを入力してね！")
     else:
-        with st.spinner("⚡️ MobileDiffusionで生成中..."):
-            output = pipe(
+        with st.spinner("画像を生成中...⚡️"):
+            image = pipe(
                 prompt=prompt,
                 num_inference_steps=steps,
-                guidance_scale=guidance_scale,
-            )
+            ).images[0]
 
-            generated_image = output.images[0]
-            st.image(
-                generated_image,
-                caption=f"Generated: '{prompt}' (Steps: {steps})",
-                use_column_width=True,
-            )
-            st.success("できた！")
+            st.image(image, caption=prompt, use_column_width=True)
+            st.success("できたよ！")
