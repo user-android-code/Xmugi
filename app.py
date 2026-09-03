@@ -1,6 +1,6 @@
 import torch
 import streamlit as st
-from diffusers import StableDiffusionPipeline
+from diffusers import DiffusionPipeline
 
 # ページ設定
 st.set_page_config(page_title="MobileDiffusion", page_icon="⚡️")
@@ -15,8 +15,11 @@ def load_mobile_diffusion():
 
     with st.spinner("ikozlov/MobileDiffusion モデルをロード中..."):
         try:
-            pipe = StableDiffusionPipeline.from_pretrained(
-                model_id, torch_dtype=torch_dtype, safety_checker=None
+            # trust_remote_code=True を追加してリポジトリのカスタムコードを読み込む
+            pipe = DiffusionPipeline.from_pretrained(
+                model_id,
+                torch_dtype=torch_dtype,
+                trust_remote_code=True
             )
             pipe = pipe.to(device)
             return pipe, device
