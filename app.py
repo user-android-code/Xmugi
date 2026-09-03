@@ -2,7 +2,7 @@ import streamlit as st
 import torch
 from diffusers import StableDiffusionPipeline
 
-st.title("256x256 Lightweight Image Generator")
+st.title("512x512 Lightweight Image Generator")
 
 @st.cache_resource
 def load_pipeline():
@@ -23,9 +23,9 @@ if st.button("Generate"):
     with st.spinner("Generating..."):
         image = pipe(
             prompt, 
-            height=256, 
-            width=256, 
-            num_inference_steps=4
+            height=512, 
+            width=512, 
+            num_inference_steps=15
         ).images[0]
         
-        st.image(image, caption="Result (256x256)")
+        st.image(image, caption="Result (512x512)")
