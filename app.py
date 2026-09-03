@@ -1,15 +1,9 @@
-# pip: torch
-# pip: diffusers
-# pip: transformers
-# pip: accelerate
-# pip: pillow
-
 import torch
 import streamlit as st
 from diffusers import StableDiffusionPipeline
 
 # ページ設定
-st.set_page_config(page_title="Hugging Face MobileDiffusion", page_icon="⚡️")
+st.set_page_config(page_title="MobileDiffusion", page_icon="⚡️")
 st.title("⚡️ MobileDiffusion (ikozlov/MobileDiffusion)")
 
 # モデルの読み込み（キャッシュ化）
