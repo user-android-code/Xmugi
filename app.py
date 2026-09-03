@@ -8,7 +8,9 @@ st.title("256x256 Lightweight Image Generator")
 def load_pipeline():
     pipe = StableDiffusionPipeline.from_pretrained(
         "nota-ai/bk-sdm-tiny", 
-        torch_dtype=torch.float32
+        torch_dtype=torch.float32,
+        use_safetensors=True,
+        low_cpu_mem_usage=True
     )
     pipe.enable_attention_slicing()
     return pipe
@@ -23,7 +25,7 @@ if st.button("Generate"):
             prompt, 
             height=256, 
             width=256, 
-            num_inference_steps=6
+            num_inference_steps=4
         ).images[0]
         
         st.image(image, caption="Result (256x256)")
