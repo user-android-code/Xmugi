@@ -25,7 +25,7 @@ if st.button("Generate"):
             prompt, 
             height=512, 
             width=512, 
-            num_inference_steps=15
+            num_inference_steps=5
         ).images[0]
         
         st.image(image, caption="Result (512x512)")
