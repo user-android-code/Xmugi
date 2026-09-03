@@ -1,30 +1,9 @@
-import os
-import subprocess
-import sys
+# pip: torch
+# pip: diffusers
+# pip: transformers
+# pip: accelerate
+# pip: pillow
 
-# 1. 必要なライブラリを自動でインストールする処理
-REQUIRED_PACKAGES = [
-    "torch",
-    "diffusers",
-    "transformers",
-    "accelerate",
-    "pillow",
-]
-
-
-def install_packages():
-    for package in REQUIRED_PACKAGES:
-        try:
-            __import__(package)
-        except ImportError:
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", package]
-            )
-
-
-install_packages()
-
-# --- ここから通常の処理 ---
 import torch
 import streamlit as st
 from diffusers import StableDiffusionPipeline
@@ -32,7 +11,6 @@ from diffusers import StableDiffusionPipeline
 # ページ設定
 st.set_page_config(page_title="Hugging Face MobileDiffusion", page_icon="⚡️")
 st.title("⚡️ MobileDiffusion (ikozlov/MobileDiffusion)")
-
 
 # モデルの読み込み（キャッシュ化）
 @st.cache_resource
@@ -52,7 +30,6 @@ def load_mobile_diffusion():
             st.error(f"モデルの読み込みに失敗したよ: {e}")
             return None, device
 
-
 # パイプラインをロード
 pipe, device = load_mobile_diffusion()
 
@@ -64,9 +41,7 @@ st.sidebar.write(f"実行デバイス: **{device.upper()}**")
 
 # パラメータ設定
 steps = st.sidebar.slider("推論ステップ数", 1, 30, 8)
-guidance_scale = st.sidebar.slider(
-    "プロンプト忠実度 (Guidance Scale)", 1.0, 20.0, 7.5
-)
+guidance_scale = st.sidebar.slider("プロンプト忠実度 (Guidance Scale)", 1.0, 20.0, 7.5)
 
 # プロンプト入力
 prompt = st.text_area(
