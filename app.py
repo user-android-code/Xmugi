@@ -1,27 +1,30 @@
 import torch
 import streamlit as st
-from diffusers import StableDiffusionPipeline, UNet2DConditionModel
+from diffusers import DiffusionPipeline
 
 # ページ設定
-st.set_page_config(page_title="MobileDiffusion", page_icon="⚡️")
+st.set_page_config(page_title="MobileDiffusion App", page_icon="⚡️")
 st.title("⚡️ MobileDiffusion (ikozlov/MobileDiffusion)")
 
+# モデルの読み込み（Hugging Face公式の読み込み手順に準拠）
 @st.cache_resource
 def load_mobile_diffusion():
     model_id = "ikozlov/MobileDiffusion"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    torch_dtype = torch.float16 if device == "cuda" else torch.float32
+    
+    # GPU環境に合わせて dtype を設定（Macなら mps, CUDAなら cuda）
+    if torch.cuda.is_available():
+        device = "cuda"
+        dtype = torch.bfloat16
+    else:
+        device = "cpu"
+        dtype = torch.float32
 
-    with st.spinner("ikozlov/MobileDiffusion モデルをロード中..."):
+    with st.spinner("MobileDiffusion モデルをロード中..."):
         try:
-            # UNet部分の読み込みでエラーになるのを防ぐため、
-            # 標準的なSD1.5のコンポーネントをベースにリポジトリの重みを適用
-            pipe = StableDiffusionPipeline.from_pretrained(
-                model_id,
-                torch_dtype=torch_dtype,
-                safety_checker=None,
-                requires_safety_checker=False,
-                use_safetensors=True,
+            # 公式記載の正しい読み込み方
+            pipe = DiffusionPipeline.from_pretrained(
+                model_id, 
+                dtype=dtype
             )
             pipe = pipe.to(device)
             return pipe, device
@@ -29,6 +32,7 @@ def load_mobile_diffusion():
             st.error(f"モデルの読み込みエラー: {e}")
             return None, device
 
+# パイプラインをロード
 pipe, device = load_mobile_diffusion()
 
 if pipe is None:
@@ -37,14 +41,17 @@ if pipe is None:
 st.sidebar.header("設定")
 st.sidebar.write(f"実行デバイス: **{device.upper()}**")
 
+# パラメータ設定
 steps = st.sidebar.slider("推論ステップ数", 1, 30, 8)
 guidance_scale = st.sidebar.slider("プロンプト忠実度", 1.0, 20.0, 7.5)
 
+# プロンプト入力
 prompt = st.text_area(
     "プロンプト (英語)",
-    value="a cute cat sitting in a sunny garden, digital art",
+    value="Astronaut in a jungle, cold color palette, detailed, 8k",
 )
 
+# 生成ボタン
 if st.button("生成する", type="primary"):
     if not prompt:
         st.warning("プロンプトを入力してね")
@@ -57,5 +64,9 @@ if st.button("生成する", type="primary"):
             )
 
             generated_image = output.images[0]
-            st.image(generated_image, caption=f"Prompt: {prompt}", use_column_width=True)
+            st.image(
+                generated_image,
+                caption=f"Generated: '{prompt}' (Steps: {steps})",
+                use_column_width=True,
+            )
             st.success("できた！")
