@@ -1,6 +1,7 @@
 import os
 import torch
 import torch.nn as nn
+import streamlit as st
 from PIL import Image
 from sentence_transformers import SentenceTransformer
 
@@ -66,24 +67,30 @@ class DFGANGenerator(nn.Module):
         img = self.to_rgb(out)
         return img
 
-class DFGANPipeline:
-    def __init__(self, weight_path=None):
-        self.device = torch.device("cuda" if torch.size == "cuda" and torch.cuda.is_available() else "cpu")
-        self.text_encoder = SentenceTransformer('all-MiniLM-L6-v2', device=self.device)
-        self.generator = DFGANGenerator(noise_dim=100, cond_dim=384).to(self.device)
-        self.generator.eval()
+@st.cache_resource
+def load_pipeline():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    text_encoder = SentenceTransformer('all-MiniLM-L6-v2', device=device)
+    generator = DFGANGenerator(noise_dim=100, cond_dim=384).to(device)
+    generator.eval()
+    return device, text_encoder, generator
 
-        if weight_path and os.path.exists(weight_path):
-            self.generator.load_state_dict(torch.load(weight_path, map_location=self.device))
+st.title("DF-GANベース画像生成")
 
-    @torch.no_grad()
-    def generate(self, prompt: str) -> Image.Image:
-        text_embedding = self.text_encoder.encode([prompt], convert_to_tensor=True).to(self.device)
-        noise = torch.randn(1, 100, device=self.device)
+prompt = st.text_input("プロンプト (例: a red bird on a branch)", "a bird")
 
-        fake_tensor = self.generator(noise, text_embedding)
+if st.button("生成開始"):
+    with st.spinner("モデルを読み込み中..."):
+        device, text_encoder, generator = load_pipeline()
+    
+    with st.spinner("STEP 1: ベース画像を生成中..."):
+        with torch.no_grad():
+            text_embedding = text_encoder.encode([prompt], convert_to_tensor=True).to(device)
+            noise = torch.randn(1, 100, device=device)
+            fake_tensor = generator(noise, text_embedding)
 
-        fake_tensor = (fake_tensor.squeeze(0).clamp(-1, 1) + 1) / 2.0
-        img_np = (fake_tensor.permute(1, 2, 0).cpu().numpy() * 255).astype("uint8")
-        
-        return Image.fromarray(img_np)
+            fake_tensor = (fake_tensor.squeeze(0).clamp(-1, 1) + 1) / 2.0
+            img_np = (fake_tensor.permute(1, 2, 0).cpu().numpy() * 255).astype("uint8")
+            base_img = Image.fromarray(img_np)
+
+        st.image(base_img, caption="STEP 1 完了 (256x256px)", use_container_width=False)
