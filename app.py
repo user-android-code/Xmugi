@@ -9,7 +9,7 @@ from sentence_transformers import SentenceTransformer
 # ---------------------------------------------------------
 # 重みファイル（.pth）の準備処理
 # ---------------------------------------------------------
-MODEL_URL = "https://github.com/tobran/DF-GAN/releases/download/v1.0/netG.pth"
+MODEL_URL = "https://github.com/1996yf/DF-GAN/releases/download/v1.0/bird.pth"
 WEIGHT_PATH = "/tmp/dfgan_netG.pth"
 
 def download_weight():
