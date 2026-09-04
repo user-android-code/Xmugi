@@ -2,12 +2,12 @@ import streamlit as st
 import torch
 from diffusers import StableDiffusionPipeline
 
-st.title("miniSD (256x256)")
+st.title("TinySD (256x256)")
 
 @st.cache_resource
 def load_pipeline():
     pipe = StableDiffusionPipeline.from_pretrained(
-        "justinpinkney/miniSD", 
+        "pypin/TinySD", 
         torch_dtype=torch.float32,
         low_cpu_mem_usage=True
     )
@@ -27,7 +27,7 @@ try:
                 num_inference_steps=15
             ).images[0]
             
-            st.image(image, caption="miniSD Result (256x256)")
+            st.image(image, caption="TinySD Result (256x256)")
 
 except Exception as e:
     st.error(f"Error: {e}")
