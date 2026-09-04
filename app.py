@@ -24,7 +24,7 @@ try:
                 prompt,
                 height=256,
                 width=256,
-                num_inference_steps=15
+                num_inference_steps=30
             ).images[0]
             
             st.image(image, caption="Result")
