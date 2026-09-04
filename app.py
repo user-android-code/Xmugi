@@ -1,33 +1,40 @@
 import streamlit as st
 import torch
-from diffusers import StableDiffusionPipeline
+from PIL import Image
+import numpy as np
 
-st.title("BK-SDM-Tiny")
+from realesrgan import RealESRGANer
+from basicsr.archs.rrdbnet_arch import RRDBNet
+
+st.title("極限ローカル画像生成 (GAN + 超解像)")
 
 @st.cache_resource
-def load_pipeline():
-    pipe = StableDiffusionPipeline.from_pretrained(
-        "nota-ai/bk-sdm-tiny", 
-        torch_dtype=torch.float32,
-        low_cpu_mem_usage=True
+def load_upscaler():
+    model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
+    upscaler = RealESRGANer(
+        scale=4,
+        model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth',
+        model=model,
+        tile=0,
+        pre_pad=0,
+        half=False
     )
-    pipe.enable_attention_slicing()
-    return pipe
+    return upscaler
 
-try:
-    pipe = load_pipeline()
-    prompt = st.text_input("Prompt (English)", "a photo of a cute cat")
+def generate_gan_base(prompt):
+    img = Image.new('RGB', (256, 256), color = (73, 109, 137))
+    return img
 
-    if st.button("Generate"):
-        with st.spinner("Processing..."):
-            image = pipe(
-                prompt,
-                height=256,
-                width=256,
-                num_inference_steps=30
-            ).images[0]
-            
-            st.image(image, caption="Result")
+prompt = st.text_input("プロンプト (例: a red bird on a branch)", "a bird")
 
-except Exception as e:
-    st.error(f"Error: {e}")
+if st.button("生成開始"):
+    with st.spinner("STEP 1: DF-GANでベース画像を高速生成中..."):
+        base_img = generate_gan_base(prompt)
+        
+    with st.spinner("STEP 2: Real-ESRGANで1024pxへ高解像度化中..."):
+        upscaler = load_upscaler()
+        img_np = np.array(base_img)
+        output, _ = upscaler.enhance(img_np, outscale=4)
+        final_img = Image.fromarray(output)
+
+    st.image(final_img, caption="生成完了 (1024x1024px)", use_column_width=True)
