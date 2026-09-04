@@ -1,3 +1,5 @@
+streamlit
 torch
+torchvision
 sentence-transformers
 Pillow
