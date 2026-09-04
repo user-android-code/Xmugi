@@ -17,7 +17,8 @@ def load_upscaler():
         model=model,
         tile=0,
         pre_pad=0,
-        half=False
+        half=False,
+        download_root='/tmp'
     )
     return upscaler
 
