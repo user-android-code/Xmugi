@@ -1,2 +1,3 @@
-streamlit
+torch
+sentence-transformers
 Pillow
