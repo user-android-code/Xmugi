@@ -2,12 +2,12 @@ import streamlit as st
 import torch
 from diffusers import StableDiffusionPipeline
 
-st.title("Small SD Test")
+st.title("BK-SDM-Tiny")
 
 @st.cache_resource
 def load_pipeline():
     pipe = StableDiffusionPipeline.from_pretrained(
-        "OFA-Sys/small-stable-diffusion-v0", 
+        "nota-ai/bk-sdm-tiny", 
         torch_dtype=torch.float32,
         low_cpu_mem_usage=True
     )
@@ -24,10 +24,10 @@ try:
                 prompt,
                 height=256,
                 width=256,
-                num_inference_steps=15
+                num_inference_steps=1
             ).images[0]
             
-            st.image(image, caption="Result (256x256)")
+            st.image(image, caption="Result")
 
 except Exception as e:
     st.error(f"Error: {e}")
