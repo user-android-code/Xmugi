@@ -1,11 +1,28 @@
 import os
+import urllib.request
 import torch
 import torch.nn as nn
 import streamlit as st
 from PIL import Image
 from sentence_transformers import SentenceTransformer
-from huggingface_hub import hf_hub_download
 
+# ---------------------------------------------------------
+# 重みファイル（.pth）の準備処理
+# ---------------------------------------------------------
+MODEL_URL = "https://github.com/tobran/DF-GAN/releases/download/v1.0/netG.pth"
+WEIGHT_PATH = "/tmp/dfgan_netG.pth"
+
+def download_weight():
+    if not os.path.exists(WEIGHT_PATH):
+        try:
+            with st.spinner("学習済み重みデータをダウンロード中..."):
+                urllib.request.urlretrieve(MODEL_URL, WEIGHT_PATH)
+        except Exception as e:
+            st.warning(f"重みファイルの自動ダウンロードに失敗しました: {e}")
+
+# ---------------------------------------------------------
+# DF-GAN Generator ネットワーク構造
+# ---------------------------------------------------------
 class Affine(nn.Module):
     def __init__(self, cond_dim, num_features):
         super().__init__()
@@ -67,26 +84,38 @@ class DFGANGenerator(nn.Module):
         img = self.to_rgb(out)
         return img
 
+# ---------------------------------------------------------
+# パイプライン・モデルロード
+# ---------------------------------------------------------
 @st.cache_resource
 def load_pipeline():
+    download_weight()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     text_encoder = SentenceTransformer('all-MiniLM-L6-v2', device=device)
     generator = DFGANGenerator(noise_dim=100, cond_dim=384).to(device)
     
-    try:
-        # Hugging Face Hubから安全に重みをロード
-        weight_path = hf_hub_download(repo_id="tobran/DF-GAN", filename="netG.pth")
-        state_dict = torch.load(weight_path, map_location=device)
-        generator.load_state_dict(state_dict, strict=False)
-    except Exception as e:
-        st.warning(f"重みの読み込みをスキップしました: {e}")
+    if os.path.exists(WEIGHT_PATH):
+        try:
+            state_dict = torch.load(WEIGHT_PATH, map_location=device)
+            # キー名（prefix）の相違にも耐えられるよう部分ロードを設定
+            if "model" in state_dict:
+                state_dict = state_dict["model"]
+            generator.load_state_dict(state_dict, strict=False)
+            st.success("学習済み重み（.pth）の適用に成功しました。")
+        except Exception as e:
+            st.warning(f"重みファイルの読み込み処理で警告が発生しました: {e}")
+    else:
+        st.warning("重みファイルが見つからないため、未学習状態で実行します。")
             
     generator.eval()
     return device, text_encoder, generator
 
+# ---------------------------------------------------------
+# UI・推論実行部
+# ---------------------------------------------------------
 st.title("DF-GANベース画像生成")
 
-prompt = st.text_input("プロンプト (例: a person standing in the room / a red bus on the street)", "a cat")
+prompt = st.text_input("プロンプト (例: a person standing in a room)", "a cat")
 
 if st.button("生成開始"):
     with st.spinner("モデルと重みを準備中..."):
