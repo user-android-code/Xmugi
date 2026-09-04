@@ -2,12 +2,12 @@ import streamlit as st
 import torch
 from diffusers import StableDiffusionPipeline
 
-st.title("TinySD Test")
+st.title("Small SD Test")
 
 @st.cache_resource
 def load_pipeline():
     pipe = StableDiffusionPipeline.from_pretrained(
-        "fusing/tiny-stable-diffusion-pipe", 
+        "OFA-Sys/small-stable-diffusion-v0", 
         torch_dtype=torch.float32,
         low_cpu_mem_usage=True
     )
