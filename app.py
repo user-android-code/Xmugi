@@ -11,7 +11,7 @@ def load_pipeline():
         torch_dtype=torch.float32,
         low_cpu_mem_usage=True
     )
-    pipe.enable_sequential_cpu_offload()
+    pipe.enable_attention_slicing()
     return pipe
 
 try:
@@ -24,7 +24,7 @@ try:
                 prompt,
                 height=256,
                 width=256,
-                num_inference_steps=1
+                num_inference_steps=15
             ).images[0]
             
             st.image(image, caption="Result")
