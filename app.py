@@ -6,7 +6,7 @@ from PIL import Image
 import numpy as np
 
 from realesrgan import RealESRGANer
-from basicsr.archs.rrdbnet_arch import RRDBNet
+from basicsr.archs.srvgg_arch import SRVGGNetCompact
 
 st.title("極限ローカル画像生成 (GAN + 超解像)")
 
@@ -20,7 +20,7 @@ def load_upscaler():
         url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth"
         urllib.request.urlretrieve(url, model_path)
 
-    model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
+    model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=32, uppercase=False, act_type='prelu')
     upscaler = RealESRGANer(
         scale=4,
         model_path=model_path,
