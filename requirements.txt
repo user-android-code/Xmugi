@@ -1,5 +1,6 @@
 streamlit
 torch
 torchvision
+opencv-python-headless
 realesrgan
 Pillow
