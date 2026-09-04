@@ -1,3 +1,5 @@
+import os
+import urllib.request
 import streamlit as st
 import torch
 from PIL import Image
@@ -10,15 +12,24 @@ st.title("極限ローカル画像生成 (GAN + 超解像)")
 
 @st.cache_resource
 def load_upscaler():
+    model_dir = "/tmp/weights"
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, "realesr-general-x4v3.pth")
+    
+    if not os.path.exists(model_path):
+        url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth"
+        urllib.request.urlretrieve(url, model_path)
+
     model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
     upscaler = RealESRGANer(
         scale=4,
-        model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth',
+        model_path=model_path,
+        dni_weight=None,
         model=model,
         tile=0,
+        tile_pad=10,
         pre_pad=0,
-        half=False,
-        download_root='/tmp'
+        half=False
     )
     return upscaler
 
