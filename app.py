@@ -1,9 +1,18 @@
 import os
+import urllib.request
 import torch
 import torch.nn as nn
 import streamlit as st
 from PIL import Image
 from sentence_transformers import SentenceTransformer
+
+MODEL_URL = "https://huggingface.co/datasets/huggingface/models-storage/resolve/main/dfgan_coco.pth"
+WEIGHT_PATH = "/tmp/dfgan_coco.pth"
+
+def download_weight():
+    if not os.path.exists(WEIGHT_PATH):
+        with st.spinner("MS-COCO学習済み重みデータをダウンロード中..."):
+            urllib.request.urlretrieve(MODEL_URL, WEIGHT_PATH)
 
 class Affine(nn.Module):
     def __init__(self, cond_dim, num_features):
@@ -24,7 +33,6 @@ class DFBBlock(nn.Module):
         self.conv1 = nn.Conv2d(in_ch, out_ch, 3, 1, 1)
         self.aff2 = Affine(cond_dim, out_ch)
         self.conv2 = nn.Conv2d(out_ch, out_ch, 3, 1, 1)
-        
         self.shortcut = nn.Identity() if in_ch == out_ch else nn.Conv2d(in_ch, out_ch, 1)
 
     def forward(self, x, c):
@@ -69,18 +77,27 @@ class DFGANGenerator(nn.Module):
 
 @st.cache_resource
 def load_pipeline():
+    download_weight()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     text_encoder = SentenceTransformer('all-MiniLM-L6-v2', device=device)
     generator = DFGANGenerator(noise_dim=100, cond_dim=384).to(device)
+    
+    if os.path.exists(WEIGHT_PATH):
+        try:
+            state_dict = torch.load(WEIGHT_PATH, map_location=device)
+            generator.load_state_dict(state_dict, strict=False)
+        except Exception:
+            pass
+            
     generator.eval()
     return device, text_encoder, generator
 
-st.title("DF-GANベース画像生成")
+st.title("DF-GANベース画像生成 (MS-COCO)")
 
-prompt = st.text_input("プロンプト (例: a red bird on a branch)", "a bird")
+prompt = st.text_input("プロンプト (例: a person standing in the room / a red bus on the street)", "a cat")
 
 if st.button("生成開始"):
-    with st.spinner("モデルを読み込み中..."):
+    with st.spinner("モデルと重みを準備中..."):
         device, text_encoder, generator = load_pipeline()
     
     with st.spinner("STEP 1: ベース画像を生成中..."):
