@@ -1,20 +1,4 @@
-import sys
-import subprocess
-
-# 1. 必要なライブラリを自動インストールする関数
-def install_packages():
-    packages = ["torch", "torchvision", "pytorch-pretrained-biggan", "Pillow"]
-    for package in packages:
-        try:
-            __import__(package.replace("-", "_"))
-        except ImportError:
-            print(f"'{package}' が見つからないから自動インストール中...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-# 自動インストール実行
-install_packages()
-
-# ライブラリの読み込み
+import streamlit as st
 import torch
 from pytorch_pretrained_biggan import (
     BigGAN,
@@ -22,36 +6,76 @@ from pytorch_pretrained_biggan import (
     save_as_images,
     one_hot_from_names,
 )
+from transformers import CLIPProcessor, CLIPModel
+from PIL import Image
+import os
 
-def generate_image(prompt_text):
-    print(f"\nプロンプト: '{prompt_text}' で画像を生成中...")
-    
-    # 256x256用の軽量モデル（約300MB）をロード
-    model = BigGAN.from_pretrained('biggan-deep-256')
+st.title("自由プロンプト対応 GAN画像生成")
 
-    try:
-        # 単語からカテゴリベクトルを作成
-        class_vector = one_hot_from_names([prompt_text], batch_size=1)
-    except Exception:
-        print(f"エラー: '{prompt_text}' は認識できなかったぞ。")
-        print("一般的な英単語（例: 'sports car', 'golden retriever', 'pizza'）で試してくれ！")
-        return
+@st.cache_resource
+def load_models():
+    # CLIP（文章と画像を関連付けるモデル）とBigGANをロード
+    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    biggan_model = BigGAN.from_pretrained('biggan-deep-256')
+    return clip_model, clip_processor, biggan_model
 
-    # ノイズベクトルの作成と変換
-    noise_vector = truncated_noise_sample(batch_size=1, truncation=0.4)
-    noise_vector = torch.from_numpy(noise_vector)
-    class_vector = torch.from_numpy(class_vector)
+with st.spinner("モデルを準備中..."):
+    clip_model, clip_processor, biggan_model = load_models()
 
-    # CPUで推論（画像生成）
-    with torch.no_grad():
-        output = model(noise_vector, class_vector, 0.4)
+# ユーザー入力（自由な日本語・英語テキスト）
+prompt_text = st.text_input("どんな画像を作りたい？（自由に入力OK）", "赤いスポーツカー")
 
-    # 画像の保存
-    file_name = f"output_{prompt_text.replace(' ', '_')}"
-    save_as_images(output, origin_class=[file_name])
-    print(f"生成完了！ '{file_name}_0.png' として保存されたぞ！")
+if st.button("画像を生成"):
+    with st.spinner("プロンプトを解析して画像を生成中..."):
+        try:
+            # 1. BigGANが理解できる代表的なカテゴリ候補
+            candidate_classes = [
+                "sports car", "golden retriever", "cat", "castle", "beach",
+                "pizza", "flower", "mountain", "airplane", "robot",
+                "coffee", "forest", "guitar", "space", "house"
+            ]
 
-if __name__ == "__main__":
-    # 好きな英語の単語をここに入れて実行！
-    my_prompt = "sports car"
-    generate_image(my_prompt)
+            # 2. CLIPを使って、入力プロンプトに一番近いカテゴリを自動判定
+            inputs = clip_processor(
+                text=[f"a photo of {c}" for c in candidate_classes],
+                images=None,
+                return_tensors="pt",
+                padding=True
+            )
+            
+            # 入力文と候補の類似度を計算
+            text_inputs = clip_processor(text=[prompt_text], return_tensors="pt", padding=True)
+            text_embeds = clip_model.get_text_features(**text_inputs)
+            cand_inputs = clip_processor(text=[f"a photo of {c}" for c in candidate_classes], return_tensors="pt", padding=True)
+            cand_embeds = clip_model.get_text_features(**cand_inputs)
+
+            # 一番近いカテゴリを選択
+            similarity = torch.matmul(text_embeds, cand_embeds.T)
+            best_idx = similarity.argmax().item()
+            matched_class = candidate_classes[best_idx]
+
+            st.info(f"解析結果: プロンプトから「**{matched_class}**」の要素を検出したぞ！")
+
+            # 3. 検出したカテゴリでGAN画像を生成
+            class_vector = one_hot_from_names([matched_class], batch_size=1)
+            noise_vector = truncated_noise_sample(batch_size=1, truncation=0.4)
+            
+            noise_vector = torch.from_numpy(noise_vector)
+            class_vector = torch.from_numpy(class_vector)
+
+            with torch.no_grad():
+                output = biggan_model(noise_vector, class_vector, 0.4)
+
+            # 4. 画像保存と表示
+            file_prefix = "output_gen"
+            save_as_images(output, origin_class=[file_prefix])
+            
+            img_path = f"{file_prefix}_0.png"
+            if os.path.exists(img_path):
+                image = Image.open(img_path)
+                st.image(image, caption=f"生成結果 (概念: {matched_class})", use_column_width=True)
+                st.success("生成完了！")
+
+        except Exception as e:
+            st.error(f"エラーが発生したぞ: {e}")
