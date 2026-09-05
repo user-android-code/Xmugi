@@ -2,6 +2,5 @@ streamlit
 torch
 torchvision
 transformers
-diffusers
 huggingface_hub
 Pillow
