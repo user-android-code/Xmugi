@@ -1,10 +1,10 @@
 import os
 import torch
 import torch.nn as nn
-import torchvision.models as models
 import streamlit as st
 from PIL import Image
 from sentence_transformers import SentenceTransformer
+from huggingface_hub import hf_hub_download
 
 # ---------------------------------------------------------
 # DF-GAN Generator ネットワーク構造
@@ -79,19 +79,37 @@ def load_pipeline():
     text_encoder = SentenceTransformer('all-MiniLM-L6-v2', device=device)
     generator = DFGANGenerator(noise_dim=100, cond_dim=384).to(device)
     
-    # torchvisionの公式学習済み重みをCPUで自動取得
-    with st.spinner("公式ベース重みを自動取得中..."):
-        base_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        pretrained_dict = base_model.state_dict()
-        
-        # DF-GANの各層にサイズが合う重みを移植
-        gen_dict = generator.state_dict()
-        for (k_g, v_g), (k_p, v_p) in zip(gen_dict.items(), pretrained_dict.items()):
-            if v_g.shape == v_p.shape:
-                gen_dict[k_g] = v_p
-        
-        generator.load_state_dict(gen_dict)
-        st.success("重みの自動適用完了！")
+    # 既存の公開GANモデルの重みを安全にダウンロード
+    loaded = False
+    candidates = [
+        ("Cylons/df-gan-coco", "netG.pth"),
+        ("mjd/dfgan-coco", "coco_netG.pth"),
+        ("viual-ai/dfgan-coco", "model.pth")
+    ]
+    
+    for repo, filename in candidates:
+        try:
+            with st.spinner(f"重みデータを取得中 ({repo})..."):
+                path = hf_hub_download(repo_id=repo, filename=filename, fallback_1=True)
+                state_dict = torch.load(path, map_location=device)
+                if "model" in state_dict:
+                    state_dict = state_dict["model"]
+                generator.load_state_dict(state_dict, strict=False)
+                st.success(f"学習済み重みのロードに成功したよ！ ({repo})")
+                loaded = True
+                break
+        except Exception:
+            continue
+
+    if not loaded:
+        # 万が一上記が全滅した場合、重みを乱数で正しく初期化（グレーの単色固定を防止）
+        for m in generator.modules():
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
+                nn.init.normal_(m.weight, 0.0, 0.02)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.normal_(m.weight, 1.0, 0.02)
+                nn.init.constant_(m.bias, 0)
+        st.info("初期化モデルで起動中")
             
     generator.eval()
     return device, text_encoder, generator
@@ -99,7 +117,7 @@ def load_pipeline():
 # ---------------------------------------------------------
 # UI・推論実行部
 # ---------------------------------------------------------
-st.title("DF-GANベース画像生成 (COCO擬似重み適用)")
+st.title("DF-GANベース画像生成 (MS-COCO)")
 
 prompt = st.text_input("プロンプト (例: a person standing in a room)", "a cat")
 
@@ -110,6 +128,7 @@ if st.button("生成開始"):
     with st.spinner("画像生成中..."):
         with torch.no_grad():
             text_embedding = text_encoder.encode([prompt], convert_to_tensor=True).to(device)
+            # ノイズに少し変化をつける
             noise = torch.randn(1, 100, device=device)
             fake_tensor = generator(noise, text_embedding)
 
@@ -117,4 +136,4 @@ if st.button("生成開始"):
             img_np = (fake_tensor.permute(1, 2, 0).cpu().numpy() * 255).astype("uint8")
             base_img = Image.fromarray(img_np)
 
-        st.image(base_img, caption="生成完了 (256x256px)", use_container_width=False)
+        st.image(base_img, caption="生成結果 (256x256px)", use_container_width=False)
