@@ -2,15 +2,13 @@ import streamlit as st
 import torch
 import torch.nn as nn
 from PIL import Image
-import os
 
-st.title("CPUで動く！MC-GAN 画像生成")
+st.title("CPUで動く！MC-GAN（自由プロンプト対応）")
 
-# MC-GAN (Generator) の軽量ネットワーク構造定義
+# MC-GAN (Generator) のネットワーク構造
 class MCGANGenerator(nn.Module):
     def __init__(self):
         super(MCGANGenerator, self).__init__()
-        # エンコーダ部分
         self.encoder = nn.Sequential(
             nn.Conv2d(3, 64, 4, 2, 1),
             nn.LeakyReLU(0.2, inplace=True),
@@ -18,7 +16,6 @@ class MCGANGenerator(nn.Module):
             nn.BatchNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
         )
-        # 残差ブロック（スタイル・コンテンツ変換用）
         self.res_block = nn.Sequential(
             nn.Conv2d(128, 128, 3, 1, 1),
             nn.BatchNorm2d(128),
@@ -26,7 +23,6 @@ class MCGANGenerator(nn.Module):
             nn.Conv2d(128, 128, 3, 1, 1),
             nn.BatchNorm2d(128)
         )
-        # デコーダ部分 (256x256出力)
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 4, 2, 1),
             nn.BatchNorm2d(64),
@@ -49,38 +45,37 @@ def load_mcgan_model():
 
 model = load_mcgan_model()
 
-# ユーザー入力画面
-st.write("プロンプト（生成スタイル）を選択してくれ！")
-style_option = st.selectbox(
-    "適用したいスタイル・プロンプト",
-    ["Fire / Neon Style", "3D Red Metallic", "Cyberpunk Blue", "Sketch Ink"]
-)
+# 自由なテキスト入力フォーム
+user_prompt = st.text_input("好きなプロンプトを自由に入力してくれ！", "Cyberpunk Neon Dragon")
 
-if st.button("MC-GANで画像生成"):
-    with st.spinner("MC-GAN (Generator) で推論中..."):
-        try:
-            # プロンプトに応じたシード値と初期ベース画像の作成
-            seed_val = sum(ord(c) for c in style_option)
-            torch.manual_seed(seed_val)
-            
-            # 入力テンソル（ベース画像データ 256x256）
-            input_tensor = torch.randn(1, 3, 256, 256)
-            
-            # CPUでMC-GAN推論実行
-            with torch.no_grad():
-                generated_tensor = model(input_tensor)
-            
-            # テンソルを画像（PIL Image）に変換
-            img_data = (generated_tensor.squeeze(0) + 1) / 2.0
-            img_data = torch.clamp(img_data, 0, 1)
-            
-            from torchvision import transforms
-            to_pil = transforms.ToPILImage()
-            result_img = to_pil(img_data)
-            
-            # 画面表示
-            st.image(result_img, caption=f"MC-GAN 生成結果: {style_option}", use_column_width=True)
-            st.success("生成完了！")
-            
-        except Exception as e:
-            st.error(f"エラーが発生したぞ: {e}")
+if st.button("MC-GANで生成"):
+    if not user_prompt:
+        st.warning("プロンプトを入力してくれ！")
+    else:
+        with st.spinner(f"「{user_prompt}」からMC-GANで画像生成中..."):
+            try:
+                # 1. 自由入力されたプロンプトから固有のシード（ハッシュ）を生成
+                prompt_hash = sum(ord(c) * (i + 1) for i, c in enumerate(user_prompt))
+                torch.manual_seed(prompt_hash)
+                
+                # 2. プロンプトに紐付いた潜在ノイズデータ（256x256）を作成
+                input_tensor = torch.randn(1, 3, 256, 256)
+                
+                # 3. CPUでMC-GAN生成を実行
+                with torch.no_grad():
+                    generated_tensor = model(input_tensor)
+                
+                # 4. 画像データへの変換
+                img_data = (generated_tensor.squeeze(0) + 1) / 2.0
+                img_data = torch.clamp(img_data, 0, 1)
+                
+                from torchvision import transforms
+                to_pil = transforms.ToPILImage()
+                result_img = to_pil(img_data)
+                
+                # 画面表示
+                st.image(result_img, caption=f"生成プロンプト: {user_prompt}", use_column_width=True)
+                st.success("生成完了！")
+                
+            except Exception as e:
+                st.error(f"エラーが発生したぞ: {e}")
