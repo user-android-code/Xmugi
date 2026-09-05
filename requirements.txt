@@ -1,6 +1,7 @@
 streamlit
 torch
 torchvision
-sentence-transformers
-Pillow
+transformers
+diffusers
 huggingface_hub
+Pillow
