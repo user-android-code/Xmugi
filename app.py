@@ -33,7 +33,8 @@ if st.button("execution"):
         last_percent = [0]
 
         def callback_fn(step, timestep, latents):
-            target_percent = int(((step + 1) / total_steps) * 100)
+            current_step = min(step + 1, total_steps)
+            target_percent = int((current_step / total_steps) * 100)
             for p in range(last_percent[0] + 1, target_percent + 1):
                 progress_bar.progress(p)
                 status_text.text(f"{p}/100")
