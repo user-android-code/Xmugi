@@ -3,3 +3,4 @@ torch
 torchvision
 sentence-transformers
 Pillow
+huggingface_hub
