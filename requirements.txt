@@ -1,8 +1,6 @@
 torch
 torchvision
-pytorch-pretrained-biggan
 Pillow
 streamlit
-transformers
-ftfy
-regex
+numpy
+scipy
