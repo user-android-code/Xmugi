@@ -4,9 +4,9 @@ from diffusers import StableDiffusionPipeline
 from deep_translator import GoogleTranslator
 import time
 
-st.set_page_config(page_title="Xmugi AI")
+st.set_page_config(page_title="Xmugi / Cpu Demo")
 
-st.title("Xmugi AI")
+st.title("Xmugi / Cpu Demo")
 
 @st.cache_resource
 def load_pipeline():
@@ -17,9 +17,9 @@ def load_pipeline():
     )
     return pipe
 
-user_input = st.text_input("", "a detailed portrait of a fantasy anime girl, masterpiece")
+user_input = st.text_input("", "")
 
-if st.button("Generate Image"):
+if st.button("execution"):
     if user_input.strip():
         translated_prompt = GoogleTranslator(source='auto', target='en').translate(user_input)
         
@@ -36,7 +36,7 @@ if st.button("Generate Image"):
             target_percent = int(((step + 1) / total_steps) * 100)
             for p in range(last_percent[0] + 1, target_percent + 1):
                 progress_bar.progress(p)
-                status_text.text(f"Generating: {p}/100")
+                status_text.text(f"{p}/100")
                 time.sleep(0.01)
             last_percent[0] = target_percent
 
@@ -52,5 +52,5 @@ if st.button("Generate Image"):
         ).images[0]
 
         progress_bar.progress(100)
-        status_text.text("Generating: 100/100 - Completed!")
+        status_text.text("100/100")
         st.image(image)
